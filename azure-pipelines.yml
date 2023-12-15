@@ -99,20 +99,18 @@ stages:
     displayName: iOS
     steps: 
           
-    # replace "iosKey" and "yourPwd" with your secure file name and password
     - task: InstallAppleCertificate@2
       displayName: Install certificate
       inputs:
-        certSecureFile: 'iosKey'
-        certPwd: 'yourPwd'
+        certSecureFile: 'ios_distribution.p12'
+        certPwd: 'changeit'
         keychain: 'temp'
     
-    # replace "ios_Profile.mobileprovision" with your secure file name
     - task: InstallAppleProvisioningProfile@1
       displayName: Install provisioning file
       inputs:
         provisioningProfileLocation: 'secureFiles'
-        provProfileSecureFile: 'ios_Profile.mobileprovision'
+        provProfileSecureFile: 'MyAppiOSDist.mobileprovision'
         
     - task: FlutterInstall@0
       displayName: "Install Flutter SDK"
@@ -127,13 +125,12 @@ stages:
         projectDirectory: '.'
         arguments: 'doctor -v'
 
-    # adjust path to the *.plist file
     - task: FlutterBuild@0
       displayName: "Build application"
       inputs:
-        target: ipa
+        target: ios
         projectDirectory: '$(Build.SourcesDirectory)'
-        exportOptionsPlist: 'ios/exportOptions.plist'
+        iosCodesign: false
 
     - task: FlutterTest@0
       displayName: "Run unit tests"
@@ -141,11 +138,30 @@ stages:
         generateCodeCoverageReport: true
         projectDirectory: '$(Build.SourcesDirectory)'
 
+    - task: Xcode@5
+      inputs:
+        actions: 'clean build archive'
+        args: '-verbose'
+        scheme: 'Runner'
+        sdk: 'iphoneos'
+        configuration: 'Release'
+        packageApp: true
+        signingOption: 'nosign'
+        useXcpretty: true
+        exportMethod: 'app-store'
+        exportOptions: 'specify'
+        xcWorkspacePath: '$(Build.SourcesDirectory)/ios/Runner.xcworkspace'
+        exportPath: '$(Build.SourcesDirectory)/ios'
+        archivePath: '$(Build.SourcesDirectory)/ios/Runner.wcarchive'
+        teamId: '8RDMCCRQJM'
+        exportTeamId: '8RDMCCRQJM'
+        exportOptionsPlist: '$(Build.SourcesDirectory)/ios/'
+
     - task: CopyFiles@2
       displayName: "Copy app to staging directory"
       inputs:
+        contents: '**/*.*'
         sourceFolder: '$(Agent.BuildDirectory)'
-        contents: '**/ipa/*.ipa'
         targetFolder: '$(Build.StagingDirectory)'
         flattenFolders: true
 
@@ -155,3 +171,12 @@ stages:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'IPA'
         publishLocation: 'Container'
+
+    - task: AppCenterDistribute@3
+      inputs:
+        serverEndpoint: 'App Center MS'
+        appSlug: 'dentello/MyAppiOS'
+        appFile: '$(Build.ArtifactStagingDirectory)/**/*.ipa'
+        symbolsOption: Apple
+        releaseNotesOption: 'input'
+        releaseNotesInput: 'New release'
