@@ -110,7 +110,7 @@ stages:
       displayName: Install provisioning file
       inputs:
         provisioningProfileLocation: 'secureFiles'
-        provProfileSecureFile: 'MyAppiOSDist.mobileprovision'
+        provProfileSecureFile: 'Bitrise_iOS.mobileprovision'
         
     - task: FlutterInstall@0
       displayName: "Install Flutter SDK"
@@ -126,11 +126,17 @@ stages:
         arguments: 'doctor -v'
 
     - task: FlutterBuild@0
-      displayName: "Build application"
+      displayName: "Build IOS"
       inputs:
-        target: ios
+        target: 'ios'
         projectDirectory: '$(Build.SourcesDirectory)'
         iosCodesign: false
+
+    #- task: PowerShell@2
+    #  name: listfiles
+    #  inputs:
+    #    targetType: 'inline'
+    #    script: 'Get-ChildItem -Path $(System.DefaultWorkingDirectory) -Recurse -File'
 
     - task: FlutterTest@0
       displayName: "Run unit tests"
@@ -140,7 +146,7 @@ stages:
 
     - task: Xcode@5
       inputs:
-        actions: 'clean build archive'
+        actions: 'archive'
         args: '-verbose'
         scheme: 'Runner'
         sdk: 'iphoneos'
@@ -149,21 +155,20 @@ stages:
         signingOption: 'nosign'
         useXcpretty: true
         exportMethod: 'app-store'
-        exportOptions: 'specify'
+        exportOptions: plist
         xcWorkspacePath: '$(Build.SourcesDirectory)/ios/Runner.xcworkspace'
-        exportPath: '$(Build.SourcesDirectory)/ios'
-        archivePath: '$(Build.SourcesDirectory)/ios/Runner.wcarchive'
+        exportPath: '$(Build.ArtifactStagingDirectory)/Runner.ipa'
+        exportOptionsPlist: '$(Build.SourcesDirectory)/ios/exportOptions.plist'
         teamId: '8RDMCCRQJM'
         exportTeamId: '8RDMCCRQJM'
-        exportOptionsPlist: '$(Build.SourcesDirectory)/ios/'
 
-    - task: CopyFiles@2
-      displayName: "Copy app to staging directory"
-      inputs:
-        contents: '**/*.*'
-        sourceFolder: '$(Agent.BuildDirectory)'
-        targetFolder: '$(Build.StagingDirectory)'
-        flattenFolders: true
+    #- task: CopyFiles@2
+    #  displayName: "Copy app to staging directory"
+    #  inputs:
+    #    sourceFolder: '$(Agent.BuildDirectory)'
+    #    contents: '**/ipa/*.ipa'
+    #    targetFolder: '$(Build.StagingDirectory)'
+    #    flattenFolders: true
 
     - task: PublishBuildArtifacts@1
       displayName: "Publish IPA file"
