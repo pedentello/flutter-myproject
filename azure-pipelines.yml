@@ -111,6 +111,7 @@ stages:
       inputs:
         provisioningProfileLocation: 'secureFiles'
         provProfileSecureFile: 'Bitrise_iOS.mobileprovision'
+        removeProfile: false
         
     - task: FlutterInstall@0
       displayName: "Install Flutter SDK"
@@ -130,13 +131,8 @@ stages:
       inputs:
         target: 'ios'
         projectDirectory: '$(Build.SourcesDirectory)'
+        buildName: '$(Build.BuildNumber)'
         iosCodesign: false
-
-    #- task: PowerShell@2
-    #  name: listfiles
-    #  inputs:
-    #    targetType: 'inline'
-    #    script: 'Get-ChildItem -Path $(System.DefaultWorkingDirectory) -Recurse -File'
 
     - task: FlutterTest@0
       displayName: "Run unit tests"
@@ -145,30 +141,25 @@ stages:
         projectDirectory: '$(Build.SourcesDirectory)'
 
     - task: Xcode@5
+      displayName: "Manual signing "
       inputs:
-        actions: 'archive'
-        args: '-verbose'
-        scheme: 'Runner'
+        actions: 'build archive'
+        signingOption: 'manual'
+        signingIdentity: '$(APPLE_CERTIFICATE_SIGNING_IDENTITY)'
+        provisioningProfileUuid: '$(APPLE_PROV_PROFILE_UUID)'
         sdk: 'iphoneos'
-        configuration: 'Release'
+        scheme: 'Runner'
         packageApp: true
-        signingOption: 'nosign'
-        useXcpretty: true
-        exportMethod: 'app-store'
-        exportOptions: plist
-        xcWorkspacePath: '$(Build.SourcesDirectory)/ios/Runner.xcworkspace'
-        exportPath: '$(Build.ArtifactStagingDirectory)/Runner.ipa'
-        exportOptionsPlist: '$(Build.SourcesDirectory)/ios/exportOptions.plist'
-        teamId: '8RDMCCRQJM'
-        exportTeamId: '8RDMCCRQJM'
+        exportPath: '$(Build.SourcesDirectory)/ios/deploy/Runner.ipa'
+        args: '-verbose'
 
-    #- task: CopyFiles@2
-    #  displayName: "Copy app to staging directory"
-    #  inputs:
-    #    sourceFolder: '$(Agent.BuildDirectory)'
-    #    contents: '**/ipa/*.ipa'
-    #    targetFolder: '$(Build.StagingDirectory)'
-    #    flattenFolders: true
+    - task: CopyFiles@2
+      displayName: "Copy app to staging directory"
+      inputs:
+        sourceFolder: '$(Build.SourcesDirectory)'
+        contents: '/**/Runner.ipa/myappios.ipa'
+        targetFolder: '$(Build.StagingDirectory)'
+        flattenFolders: true
 
     - task: PublishBuildArtifacts@1
       displayName: "Publish IPA file"
@@ -178,6 +169,7 @@ stages:
         publishLocation: 'Container'
 
     - task: AppCenterDistribute@3
+      displayName: "Distribute App Center"
       inputs:
         serverEndpoint: 'App Center MS'
         appSlug: 'dentello/MyAppiOS'
@@ -185,3 +177,21 @@ stages:
         symbolsOption: Apple
         releaseNotesOption: 'input'
         releaseNotesInput: 'New release'
+
+    - task: AppStoreRelease@1
+      displayName: "App Store Release - TestFlight"
+      inputs:
+        authType: 'ApiKey'
+        apiKeyId: 'XXX'
+        apiKeyIssuerId: 'XXX'
+        apitoken: 'XXX'
+        releaseTrack: 'TestFlight'
+        appIdentifier: 'com.pedentello.myappios'
+        appType: 'iOS'
+        ipaPath: '$(Build.ArtifactStagingDirectory)/**/*.ipa'
+        shouldSkipWaitingForProcessing: true
+        shouldSkipSubmission: true
+        appSpecificId: '6474454670'
+        installFastlane: false
+        serviceEndpoint: 
+        
